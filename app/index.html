@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DevOps CA1 Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            text-align: center;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            color: #0066cc;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DevOps CA1 - Automated Deployment - By Prakash</h1>
+        <p>This application was deployed automatically using:</p>
+        <ul style="list-style-type: none; padding: 0;">
+            <li>Terraform - Infrastructure as Code</li>
+            <li>Ansible - Configuration Management</li>
+            <li>Docker - Containerization</li>
+        </ul>
+        <p>Deployed on: <span id="date"></span></p>
+    </div>
+    <script>
+        document.getElementById('date').innerHTML = new Date().toLocaleString();
+    </script>
+</body>
+</html>

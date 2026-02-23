@@ -1,0 +1,68 @@
+---
+- name: Configure and deploy Docker web app
+  hosts: web_server
+  become: yes
+  
+  tasks:
+    - name: Update packages (Amazon Linux)
+      yum:
+        name: "*"
+        state: latest
+      when: ansible_os_family == "RedHat"
+
+    - name: Install Docker
+      yum:
+        name: docker
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Enable & start Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add ec2-user to docker group
+      user:
+        name: ec2-user
+        groups: docker
+        append: yes
+
+    - name: Create app directory on server
+      file:
+        path: /home/ec2-user/app
+        state: directory
+        mode: '0755'
+
+    - name: Copy application files to EC2
+      copy:
+        src: ../app/
+        dest: /home/ec2-user/app/
+        mode: '0644'
+
+    - name: Build Docker image from copied files
+      docker_image:
+        name: my-web-app
+        tag: latest
+        source: build
+        build:
+          path: /home/ec2-user/app
+        state: present
+      register: build_result
+
+    - name: Stop and remove existing container if running
+      docker_container:
+        name: web-app
+        state: absent
+      ignore_errors: yes
+
+    - name: Run Docker container with new image
+      docker_container:
+        name: web-app
+        image: my-web-app:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "80:80"
+        volumes:
+         - /home/ec2-user/app/index.html:/usr/share/nginx/html/index.html
