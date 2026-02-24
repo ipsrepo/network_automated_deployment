@@ -12,8 +12,26 @@ provider "aws" {
   region = var.aws_region
 }
 
-# Upload your public SSH key so EC2 can use it
+# Data sources to check if resources already exist
+data "aws_key_pair" "existing" {
+  key_name = "${var.project_name}-key"
+}
+
+data "aws_security_group" "existing" {
+  name = "${var.project_name}-sg"
+}
+
+data "aws_iam_role" "existing" {
+  name = "${var.project_name}-ec2-role"
+}
+
+data "aws_iam_instance_profile" "existing" {
+  name = "${var.project_name}-instance-profile"
+}
+
+# Upload your public SSH key so EC2 can use it (only if it doesn't exist)
 resource "aws_key_pair" "main" {
+  count = try(data.aws_key_pair.existing.id, null) == null ? 1 : 0
   key_name   = "${var.project_name}-key"
   public_key = var.public_key != "" ? var.public_key : file(var.public_key_path)
 }
@@ -27,8 +45,9 @@ locals {
   my_cidr = "${trimspace(data.http.myip.response_body)}/32"
 }
 
-# Security group: allow SSH from you, HTTP from everyone
+# Security group: allow SSH from you, HTTP from everyone (only if it doesn't exist)
 resource "aws_security_group" "web_sg" {
+  count = try(data.aws_security_group.existing.id, null) == null ? 1 : 0
   name        = "${var.project_name}-sg"
   description = "Allow SSH and HTTP"
 
@@ -68,9 +87,13 @@ resource "aws_security_group" "web_sg" {
     security_groups  = []
     self             = false
   }]
+
+  tags = {
+    Name = "${var.project_name}-sg"
+  }
 }
 
-# IAM role so the EC2 instance can use SSM (nice for management)
+# IAM role so the EC2 instance can use SSM (only if it doesn't exist)
 data "aws_iam_policy_document" "ec2_assume_role" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -82,18 +105,21 @@ data "aws_iam_policy_document" "ec2_assume_role" {
 }
 
 resource "aws_iam_role" "ec2_role" {
+  count = try(data.aws_iam_role.existing.arn, null) == null ? 1 : 0
   name               = "${var.project_name}-ec2-role"
   assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
 }
 
 resource "aws_iam_role_policy_attachment" "ssm_attach" {
-  role       = aws_iam_role.ec2_role.name
+  count      = try(data.aws_iam_role.existing.arn, null) == null ? 1 : 0
+  role       = try(aws_iam_role.ec2_role[0].name, data.aws_iam_role.existing.name)
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 resource "aws_iam_instance_profile" "ec2_profile" {
+  count = try(data.aws_iam_instance_profile.existing.name, null) == null ? 1 : 0
   name = "${var.project_name}-instance-profile"
-  role = aws_iam_role.ec2_role.name
+  role = try(aws_iam_role.ec2_role[0].name, data.aws_iam_role.existing.name)
 }
 
 # Get latest Amazon Linux 2023 AMI for ARM (Graviton / t4g.micro)
@@ -101,7 +127,6 @@ data "aws_ami" "al2023" {
   most_recent = true
   owners      = ["137112412989"] # Amazon official
 
-  # Grab the ARM64 build, not x86_64
   filter {
     name   = "name"
     values = ["al2023-ami-*-arm64"]
@@ -118,14 +143,14 @@ data "aws_eip" "existing_eip" {
   public_ip = var.elastic_ip_address
 }
 
-# Create EC2 instance (free tier eligible: t4g.micro on new accounts)
+# Create EC2 instance
 resource "aws_instance" "web" {
   ami                         = data.aws_ami.al2023.id
   instance_type               = var.instance_type
-  key_name                    = aws_key_pair.main.key_name
-  vpc_security_group_ids      = [aws_security_group.web_sg.id]
-  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
-  associate_public_ip_address = true  # Still needed for initial access
+  key_name                    = try(aws_key_pair.main[0].key_name, data.aws_key_pair.existing.key_name)
+  vpc_security_group_ids      = [try(aws_security_group.web_sg[0].id, data.aws_security_group.existing.id)]
+  iam_instance_profile        = try(aws_iam_instance_profile.ec2_profile[0].name, data.aws_iam_instance_profile.existing.name)
+  associate_public_ip_address = true
 
   tags = {
     Name = "${var.project_name}-web"

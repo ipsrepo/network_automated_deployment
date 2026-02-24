@@ -28,6 +28,19 @@
         groups: docker
         append: yes
 
+    - name: Install pip
+      yum:
+        name: python3-pip
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Install Docker SDK for Python
+      pip:
+        name: docker
+        state: present
+        extra_args: --ignore-installed
+      when: ansible_os_family == "RedHat"
+
     - name: Create app directory on server
       file:
         path: /home/ec2-user/app
@@ -48,7 +61,6 @@
         build:
           path: /home/ec2-user/app
         state: present
-      register: build_result
 
     - name: Stop and remove existing container if running
       docker_container:
@@ -56,7 +68,7 @@
         state: absent
       ignore_errors: yes
 
-    - name: Run Docker container with new image
+    - name: Run Docker container with restart policy
       docker_container:
         name: web-app
         image: my-web-app:latest
@@ -64,5 +76,3 @@
         restart_policy: always
         ports:
           - "80:80"
-        volumes:
-         - /home/ec2-user/app/index.html:/usr/share/nginx/html/index.html
