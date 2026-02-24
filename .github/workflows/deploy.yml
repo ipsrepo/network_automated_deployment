@@ -36,7 +36,7 @@ jobs:
         run: |
           terraform apply -auto-approve \
             -var="public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
-            -var="elastic_ip_allocation_id=${{ secrets.ELASTIC_IP_ALLOCATION_ID }}"
+            -var="elastic_ip_address=${{ secrets.ELASTIC_IP_ADDRESS }}"
         working-directory: ./terraform
 
       # Get the Elastic IP from Terraform output (permanent address)

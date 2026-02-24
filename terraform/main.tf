@@ -15,7 +15,7 @@ provider "aws" {
 # Upload your public SSH key so EC2 can use it
 resource "aws_key_pair" "main" {
   key_name   = "${var.project_name}-key"
-  public_key = file(var.public_key_path)
+  public_key = var.public_key != "" ? var.public_key : file(var.public_key_path)
 }
 
 # Detect your current IP so only you can SSH in
@@ -113,13 +113,9 @@ data "aws_ami" "al2023" {
   }
 }
 
-# Look up your existing Elastic IP by its allocation ID or IP address
+# Look up your existing Elastic IP by its public IP address
 data "aws_eip" "existing_eip" {
-  # You can look it up by public IP address
   public_ip = var.elastic_ip_address
-  
-  # OR look it up by allocation ID (uncomment if you prefer)
-  # id = var.elastic_ip_allocation_id
 }
 
 # Create EC2 instance (free tier eligible: t4g.micro on new accounts)

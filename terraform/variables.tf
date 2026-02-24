@@ -14,6 +14,12 @@ variable "public_key_path" {
   default = "~/.ssh/aws-key.pub"
 }
 
+variable "public_key" {
+  description = "The public key content for EC2 instance (used in CI/CD)"
+  type        = string
+  default     = ""
+}
+
 variable "elastic_ip_address" {
   default = "52.48.24.168"
 }
