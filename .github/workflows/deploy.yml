@@ -28,7 +28,7 @@ jobs:
             -o ConnectTimeout=10 \
             -o StrictHostKeyChecking=no \
             ${{ secrets.SSH_USER }}@${{ secrets.ELASTIC_IP_ADDRESS }} \
-            "echo '✅ SSH connection successful' && hostname"
+            "echo '✅ SSH connection successful'"
 
       # ------------------------------
       # Install Ansible
@@ -56,11 +56,11 @@ jobs:
           echo -e "[defaults]\nhost_key_checking = False" > ~/.ansible/ansible.cfg
 
       # ------------------------------
-      # Deploy with Ansible
+      # Run Ansible Playbook
       # ------------------------------
       - name: Run Ansible playbook
         run: |
-          echo "🚀 Deploying application to ${{ secrets.ELASTIC_IP_ADDRESS }}..."
+          echo "🚀 Running Ansible playbook on ${{ secrets.ELASTIC_IP_ADDRESS }}..."
           ansible-playbook -i ansible/inventory.ini ansible/playbook.yml -v
 
       # ------------------------------
@@ -94,7 +94,7 @@ jobs:
           echo "🌐 Your application is live at:"
           echo "   http://${{ secrets.ELASTIC_IP_ADDRESS }}"
           echo ""
-          echo "🔄 Latest code has been deployed"
+          echo "🔄 Latest code has been deployed using Ansible"
           echo "📅 Deployment time: $(date)"
           echo "========================================="
 

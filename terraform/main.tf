@@ -12,7 +12,7 @@ provider "aws" {
   region = var.aws_region
 }
 
-# Detect your current IP so only you can SSH in
+# Detect your current IP (just for information, not used for SSH restriction)
 data "http" "myip" {
   url = "https://checkip.amazonaws.com/"
 }
@@ -21,19 +21,19 @@ locals {
   my_cidr = "${trimspace(data.http.myip.response_body)}/32"
 }
 
-# Security group: allow SSH from you, HTTP from everyone
+# Security group: allow SSH from anywhere (for CI/CD), HTTP from everyone
 resource "aws_security_group" "web_sg" {
   name        = "${var.project_name}-sg"
   description = "Allow SSH and HTTP"
 
   ingress = [
     {
-      description      = "SSH"
+      description      = "SSH from anywhere (for CI/CD)"
       from_port        = 22
       to_port          = 22
       protocol         = "tcp"
-      cidr_blocks      = [local.my_cidr]
-      ipv6_cidr_blocks = []
+      cidr_blocks      = ["0.0.0.0/0"]  # Allow from all IPs for CI/CD
+      ipv6_cidr_blocks = ["::/0"]
       prefix_list_ids  = []
       security_groups  = []
       self             = false
@@ -74,7 +74,7 @@ resource "aws_key_pair" "main" {
   public_key = var.public_key != "" ? var.public_key : file(var.public_key_path)
 }
 
-# IAM role for SSM (optional - can be removed if not needed)
+# IAM role for SSM (optional)
 resource "aws_iam_role" "ec2_role" {
   name               = "${var.project_name}-ec2-role"
   assume_role_policy = jsonencode({
@@ -151,6 +151,11 @@ output "elastic_ip" {
 output "instance_id" {
   description = "ID of the EC2 instance"
   value       = aws_instance.web.id
+}
+
+output "security_group_id" {
+  description = "ID of the security group"
+  value       = aws_security_group.web_sg.id
 }
 
 output "website_url" {
