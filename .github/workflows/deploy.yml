@@ -2,7 +2,7 @@ name: Deploy Web App to Existing EC2 Instance
 
 on:
   push:
-    branches: [ main ]  # Trigger on pushes to main branch
+    branches: [ main ]
 
 jobs:
   deploy:
@@ -23,12 +23,15 @@ jobs:
           
           # Add host to known hosts to avoid prompt
           ssh-keyscan -H ${{ secrets.ELASTIC_IP }} >> ~/.ssh/known_hosts
+        env:
+          ELASTIC_IP: ${{ secrets.ELASTIC_IP }}
 
       - name: Test SSH connection
         run: |
           echo "🔍 Testing SSH connection to ${{ secrets.ELASTIC_IP }}..."
           ssh -i ~/.ssh/aws-key \
             -o ConnectTimeout=10 \
+            -o StrictHostKeyChecking=no \
             ${{ secrets.SSH_USER }}@${{ secrets.ELASTIC_IP }} \
             "echo '✅ SSH connection successful' && hostname"
 
@@ -63,8 +66,7 @@ jobs:
       - name: Run Ansible playbook
         run: |
           echo "🚀 Deploying application to ${{ secrets.ELASTIC_IP }}..."
-          ansible-playbook -i inventory.ini playbook.yml -v
-        working-directory: ./ansible
+          ansible-playbook -i ansible/inventory.ini ansible/playbook.yml -v
 
       # ------------------------------
       # Verify Deployment
@@ -120,14 +122,8 @@ jobs:
           ssh -i ~/.ssh/aws-key \
             -o ConnectTimeout=5 \
             -o ConnectionAttempts=1 \
+            -o StrictHostKeyChecking=no \
             ${{ secrets.SSH_USER }}@${{ secrets.ELASTIC_IP }} \
             "echo 'SSH works'" || echo "❌ SSH failed"
-          
-          # Check Docker on server
-          echo ""
-          echo "🐳 Checking Docker on server:"
-          ssh -i ~/.ssh/aws-key \
-            ${{ secrets.SSH_USER }}@${{ secrets.ELASTIC_IP }} \
-            "docker ps -a" || echo "❌ Cannot list Docker containers"
           
           echo "======================================="
