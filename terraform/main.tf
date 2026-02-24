@@ -113,34 +113,67 @@ data "aws_ami" "al2023" {
   }
 }
 
+# Look up your existing Elastic IP by its allocation ID or IP address
+data "aws_eip" "existing_eip" {
+  # You can look it up by public IP address
+  public_ip = var.elastic_ip_address
+  
+  # OR look it up by allocation ID (uncomment if you prefer)
+  # id = var.elastic_ip_allocation_id
+}
+
 # Create EC2 instance (free tier eligible: t4g.micro on new accounts)
 resource "aws_instance" "web" {
   ami                         = data.aws_ami.al2023.id
-  instance_type               = var.instance_type      # should now be t4g.micro
+  instance_type               = var.instance_type
   key_name                    = aws_key_pair.main.key_name
   vpc_security_group_ids      = [aws_security_group.web_sg.id]
   iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
-  associate_public_ip_address = true
+  associate_public_ip_address = true  # Still needed for initial access
 
   tags = {
     Name = "${var.project_name}-web"
   }
 }
 
-# Outputs for you to copy
+# Associate your existing Elastic IP with the EC2 instance
+resource "aws_eip_association" "web_eip_assoc" {
+  instance_id   = aws_instance.web.id
+  allocation_id = data.aws_eip.existing_eip.id
+}
+
+# Outputs
 output "public_ip" {
-  value = aws_instance.web.public_ip
+  description = "Temporary public IP (may change)"
+  value       = aws_instance.web.public_ip
 }
 
 output "public_dns" {
-  value = aws_instance.web.public_dns
+  description = "Public DNS of the instance"
+  value       = aws_instance.web.public_dns
+}
+
+output "elastic_ip" {
+  description = "Your permanent Elastic IP address"
+  value       = data.aws_eip.existing_eip.public_ip
+}
+
+output "elastic_ip_allocation_id" {
+  description = "Allocation ID of your Elastic IP"
+  value       = data.aws_eip.existing_eip.id
 }
 
 output "ssh_command" {
-  value = "ssh -i ~/.ssh/aws-key ec2-user@${aws_instance.web.public_dns}"
+  description = "SSH command using Elastic IP (permanent)"
+  value       = "ssh -i ~/.ssh/aws-key ec2-user@${data.aws_eip.existing_eip.public_ip}"
 }
 
 output "instance_id" {
   description = "ID of the EC2 instance"
   value       = aws_instance.web.id
+}
+
+output "website_url" {
+  description = "URL to access your website (permanent)"
+  value       = "http://${data.aws_eip.existing_eip.public_ip}"
 }

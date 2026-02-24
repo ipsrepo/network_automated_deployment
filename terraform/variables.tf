@@ -13,3 +13,7 @@ variable "instance_type" {
 variable "public_key_path" {
   default = "~/.ssh/aws-key.pub"
 }
+
+variable "elastic_ip_address" {
+  default = "52.48.24.168"
+}

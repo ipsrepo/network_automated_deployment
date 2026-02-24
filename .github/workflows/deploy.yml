@@ -12,9 +12,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ------------------------------
       # Setup AWS credentials
-      # ------------------------------
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -22,31 +20,123 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # ------------------------------
-      # Terraform
-      # ------------------------------
+      # Check if instance is already running
+      - name: Check existing instance status
+        id: check_instance
+        run: |
+          # Try to get instance ID from Terraform state if it exists
+          cd terraform
+          
+          # Check if Terraform state exists and has an instance
+          if terraform show -json | jq -e '.values.root_module.resources[] | select(.type=="aws_instance")' > /dev/null 2>&1; then
+            INSTANCE_ID=$(terraform output -raw instance_id 2>/dev/null || echo "")
+            
+            if [ -n "$INSTANCE_ID" ]; then
+              # Check if instance is running
+              STATE=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].State.Name' --output text 2>/dev/null || echo "terminated")
+              
+              if [ "$STATE" == "running" ]; then
+                echo "instance_exists=true" >> $GITHUB_OUTPUT
+                echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+                echo "instance_state=running" >> $GITHUB_OUTPUT
+                echo "✅ Found running instance: $INSTANCE_ID"
+              elif [ "$STATE" == "stopped" ]; then
+                echo "instance_exists=true" >> $GITHUB_OUTPUT
+                echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+                echo "instance_state=stopped" >> $GITHUB_OUTPUT
+                echo "⚠️ Found stopped instance: $INSTANCE_ID"
+              else
+                echo "instance_exists=false" >> $GITHUB_OUTPUT
+                echo "ℹ️ No existing instance found or instance is terminated"
+              fi
+            else
+              echo "instance_exists=false" >> $GITHUB_OUTPUT
+              echo "ℹ️ No instance ID in Terraform output"
+            fi
+          else
+            echo "instance_exists=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No Terraform state found"
+          fi
+        working-directory: ./terraform
+
+      # Start stopped instance if it exists
+      - name: Start stopped instance
+        if: steps.check_instance.outputs.instance_exists == 'true' && steps.check_instance.outputs.instance_state == 'stopped'
+        run: |
+          INSTANCE_ID="${{ steps.check_instance.outputs.instance_id }}"
+          echo "🔄 Starting stopped instance: $INSTANCE_ID"
+          aws ec2 start-instances --instance-ids $INSTANCE_ID
+          
+          # Wait for instance to be running
+          echo "⏳ Waiting for instance to be running..."
+          aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+          echo "✅ Instance is now running"
+          
+          # Get the Elastic IP (should still be associated)
+          ELASTIC_IP=$(aws ec2 describe-addresses --filters "Name=instance-id,Values=$INSTANCE_ID" --query 'Addresses[0].PublicIp' --output text)
+          echo "elastic_ip=$ELASTIC_IP" >> $GITHUB_OUTPUT
+          echo "public_ip=$ELASTIC_IP" >> $GITHUB_OUTPUT
+          
+          # Wait a bit more for services to initialize
+          echo "⏳ Waiting 30 seconds for services to initialize..."
+          sleep 30
+        id: start_instance
+        working-directory: ./terraform
+
+      # Terraform (only if no instance exists)
       - name: Setup Terraform
+        if: steps.check_instance.outputs.instance_exists == 'false'
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.5.0
 
       - name: Terraform Init
+        if: steps.check_instance.outputs.instance_exists == 'false'
         run: terraform init
         working-directory: ./terraform
 
-      - name: Terraform Apply
-        run: terraform apply -auto-approve
+      - name: Terraform Apply (Create new instance)
+        if: steps.check_instance.outputs.instance_exists == 'false'
+        run: |
+          terraform apply -auto-approve \
+            -var="public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
+            -var="elastic_ip_address=${{ secrets.ELASTIC_IP_ADDRESS }}"
         working-directory: ./terraform
 
-      # Capture the public IP from Terraform output
+      # Get IP address (from either existing or new instance)
       - name: Get EC2 Public IP
         id: get_ip
-        run: echo "public_ip=$(terraform output -raw public_ip)" >> $GITHUB_OUTPUT
-        working-directory: ./terraform
+        run: |
+          if [ "${{ steps.check_instance.outputs.instance_exists }}" == "true" ] && [ "${{ steps.check_instance.outputs.instance_state }}" == "stopped" ]; then
+            # Use IP from start_instance step
+            echo "public_ip=${{ steps.start_instance.outputs.public_ip }}" >> $GITHUB_OUTPUT
+            echo "elastic_ip=${{ steps.start_instance.outputs.elastic_ip }}" >> $GITHUB_OUTPUT
+          else
+            # Get from Terraform output
+            cd terraform
+            PUBLIC_IP=$(terraform output -raw public_ip 2>/dev/null || echo "")
+            ELASTIC_IP=$(terraform output -raw elastic_ip 2>/dev/null || echo "$PUBLIC_IP")
+            
+            # If no Terraform output, try to get from AWS directly
+            if [ -z "$PUBLIC_IP" ]; then
+              # Try to find instance by Elastic IP
+              EIP="${{ secrets.ELASTIC_IP_ADDRESS }}"
+              if [ -n "$EIP" ]; then
+                INSTANCE_ID=$(aws ec2 describe-addresses --public-ips $EIP --query 'Addresses[0].InstanceId' --output text)
+                if [ -n "$INSTANCE_ID" ] && [ "$INSTANCE_ID" != "None" ]; then
+                  PUBLIC_IP=$EIP
+                  ELASTIC_IP=$EIP
+                fi
+              fi
+            fi
+            
+            echo "public_ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
+            echo "elastic_ip=$ELASTIC_IP" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "🌐 Using IP: ${{ steps.get_ip.outputs.public_ip }}"
 
-      # ------------------------------
       # Prepare Ansible
-      # ------------------------------
       - name: Install Ansible
         run: |
           python -m pip install --upgrade pip
@@ -59,23 +149,46 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/aws-key
           chmod 600 ~/.ssh/aws-key
 
-      # Create dynamic inventory file with the new IP
+      # Create dynamic inventory file with the IP
       - name: Create Ansible inventory
         run: |
           cd ansible
           echo "[web_server]" > inventory.ini
           echo "${{ steps.get_ip.outputs.public_ip }} ansible_user=${{ secrets.SSH_USER }} ansible_ssh_private_key_file=~/.ssh/aws-key" >> inventory.ini
-          cat inventory.ini   # optional, for debugging
+          echo "📄 Inventory file created with IP: ${{ steps.get_ip.outputs.public_ip }}"
+          cat inventory.ini
 
       # Disable host key checking (first connection to a new instance)
-      - name: Disable host key checking (optional)
+      - name: Disable host key checking
         run: |
           mkdir -p ~/.ansible
           echo -e "[defaults]\nhost_key_checking = False" > ~/.ansible/ansible.cfg
 
-      # ------------------------------
+      # Wait for SSH to be ready (especially important for newly started instances)
+      - name: Wait for SSH to be ready
+        run: |
+          echo "⏳ Waiting for SSH to be ready on ${{ steps.get_ip.outputs.public_ip }}..."
+          for i in {1..30}; do
+            if nc -z -w5 ${{ steps.get_ip.outputs.public_ip }} 22; then
+              echo "✅ SSH is ready!"
+              break
+            fi
+            echo "⏳ Attempt $i/30: SSH not ready yet..."
+            sleep 10
+          done
+
       # Run Ansible Playbook
-      # ------------------------------
       - name: Run Ansible playbook
-        run: ansible-playbook -i inventory.ini playbook.yml
+        run: ansible-playbook -i inventory.ini playbook.yml -v
         working-directory: ./ansible
+
+      # Final status
+      - name: Deployment Status
+        if: always()
+        run: |
+          echo "==============================="
+          echo "✅ DEPLOYMENT COMPLETE"
+          echo "==============================="
+          echo "🌐 Website URL: http://${{ steps.get_ip.outputs.elastic_ip || steps.get_ip.outputs.public_ip }}"
+          echo "🔑 SSH command: ssh -i ~/.ssh/aws-key ${{ secrets.SSH_USER }}@${{ steps.get_ip.outputs.public_ip }}"
+          echo "==============================="
