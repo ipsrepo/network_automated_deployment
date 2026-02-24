@@ -20,19 +20,14 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/aws-key
           chmod 600 ~/.ssh/aws-key
-          
-          # Add host to known hosts to avoid prompt
-          ssh-keyscan -H ${{ secrets.ELASTIC_IP }} >> ~/.ssh/known_hosts
-        env:
-          ELASTIC_IP: ${{ secrets.ELASTIC_IP }}
 
       - name: Test SSH connection
         run: |
-          echo "🔍 Testing SSH connection to ${{ secrets.ELASTIC_IP }}..."
+          echo "🔍 Testing SSH connection to ${{ secrets.ELASTIC_IP_ADDRESS }}..."
           ssh -i ~/.ssh/aws-key \
             -o ConnectTimeout=10 \
             -o StrictHostKeyChecking=no \
-            ${{ secrets.SSH_USER }}@${{ secrets.ELASTIC_IP }} \
+            ${{ secrets.SSH_USER }}@${{ secrets.ELASTIC_IP_ADDRESS }} \
             "echo '✅ SSH connection successful' && hostname"
 
       # ------------------------------
@@ -50,8 +45,8 @@ jobs:
         run: |
           cd ansible
           echo "[web_server]" > inventory.ini
-          echo "${{ secrets.ELASTIC_IP }} ansible_user=${{ secrets.SSH_USER }} ansible_ssh_private_key_file=~/.ssh/aws-key" >> inventory.ini
-          echo "📋 Using Elastic IP: ${{ secrets.ELASTIC_IP }}"
+          echo "${{ secrets.ELASTIC_IP_ADDRESS }} ansible_user=${{ secrets.SSH_USER }} ansible_ssh_private_key_file=~/.ssh/aws-key" >> inventory.ini
+          echo "📋 Using Elastic IP: ${{ secrets.ELASTIC_IP_ADDRESS }}"
           cat inventory.ini
 
       # Disable host key checking for Ansible
@@ -65,7 +60,7 @@ jobs:
       # ------------------------------
       - name: Run Ansible playbook
         run: |
-          echo "🚀 Deploying application to ${{ secrets.ELASTIC_IP }}..."
+          echo "🚀 Deploying application to ${{ secrets.ELASTIC_IP_ADDRESS }}..."
           ansible-playbook -i ansible/inventory.ini ansible/playbook.yml -v
 
       # ------------------------------
@@ -73,13 +68,13 @@ jobs:
       # ------------------------------
       - name: Verify application is running
         run: |
-          echo "🔍 Verifying web application at http://${{ secrets.ELASTIC_IP }}"
+          echo "🔍 Verifying web application at http://${{ secrets.ELASTIC_IP_ADDRESS }}"
           
           # Wait a moment for container to restart
           sleep 5
           
           # Check HTTP status
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.ELASTIC_IP }})
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.ELASTIC_IP_ADDRESS }})
           
           if [ "$HTTP_STATUS" -eq 200 ]; then
             echo "✅ Application is responding with status 200"
@@ -97,7 +92,7 @@ jobs:
           echo "✅✅✅ DEPLOYMENT COMPLETE! ✅✅✅"
           echo "========================================="
           echo "🌐 Your application is live at:"
-          echo "   http://${{ secrets.ELASTIC_IP }}"
+          echo "   http://${{ secrets.ELASTIC_IP_ADDRESS }}"
           echo ""
           echo "🔄 Latest code has been deployed"
           echo "📅 Deployment time: $(date)"
@@ -113,8 +108,8 @@ jobs:
           echo "======================================="
           
           # Check if instance is reachable
-          echo "📡 Testing connectivity to ${{ secrets.ELASTIC_IP }}:"
-          ping -c 2 ${{ secrets.ELASTIC_IP }} || echo "❌ Instance not reachable"
+          echo "📡 Testing connectivity to ${{ secrets.ELASTIC_IP_ADDRESS }}:"
+          ping -c 2 ${{ secrets.ELASTIC_IP_ADDRESS }} || echo "❌ Instance not reachable"
           
           # Test SSH
           echo ""
@@ -123,7 +118,7 @@ jobs:
             -o ConnectTimeout=5 \
             -o ConnectionAttempts=1 \
             -o StrictHostKeyChecking=no \
-            ${{ secrets.SSH_USER }}@${{ secrets.ELASTIC_IP }} \
+            ${{ secrets.SSH_USER }}@${{ secrets.ELASTIC_IP_ADDRESS }} \
             "echo 'SSH works'" || echo "❌ SSH failed"
           
           echo "======================================="
