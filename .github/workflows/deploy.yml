@@ -32,6 +32,16 @@ jobs:
         run: terraform init
         working-directory: ./terraform
 
+      - name: Terraform Import Existing Resources
+        continue-on-error: true  # This will continue even if resources don't exist yet
+        run: |
+          cd terraform
+          terraform import aws_key_pair.main devops-app-key || true
+          terraform import aws_security_group.web_sg sg-0b91a9eec8671d3e1 || true
+          terraform import aws_iam_role.ec2_role devops-app-ec2-role || true
+          terraform import aws_iam_instance_profile.ec2_profile devops-app-instance-profile || true
+        working-directory: ./terraform
+
       - name: Terraform Apply
         run: |
           terraform apply -auto-approve \
