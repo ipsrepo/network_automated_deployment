@@ -2,7 +2,6 @@
 - name: Configure and deploy Docker web app
   hosts: web_server
   become: yes
-  gather_facts: yes
   
   tasks:
     - name: Update packages (Amazon Linux)
@@ -42,41 +41,29 @@
         extra_args: --ignore-installed
       when: ansible_os_family == "RedHat"
 
-    - name: Create app directory on server
+    - name: Clean app directory on server (remove all existing files)
+      file:
+        path: /home/ec2-user/app
+        state: absent
+
+    - name: Create fresh app directory on server
       file:
         path: /home/ec2-user/app
         state: directory
         mode: '0755'
 
-    - name: Copy application files to EC2
+    - name: Copy application files to EC2 (overwrites everything)
       copy:
         src: ../app/
         dest: /home/ec2-user/app/
         mode: '0644'
-        force: yes
+        force: yes  # Force overwrite existing files
 
-    - name: Display copied HTML file (debug)
-      command: cat /home/ec2-user/app/index.html
-      register: html_content
-      changed_when: false
-
-    - name: Show HTML first line
-      debug:
-        msg: "HTML first line: {{ html_content.stdout_lines[0] if html_content.stdout_lines else 'Empty' }}"
-
-    - name: Remove old container if exists
-      docker_container:
-        name: web-app
-        state: absent
-        force_kill: yes
-      ignore_errors: yes
-
-    - name: Remove old Docker image
-      docker_image:
-        name: my-web-app
-        tag: latest
-        state: absent
-        force_absent: yes
+    - name: Remove old Docker image and container completely
+      shell: |
+        docker stop web-app || true
+        docker rm web-app || true
+        docker rmi my-web-app:latest || true
       ignore_errors: yes
 
     - name: Build fresh Docker image (with no cache)
@@ -86,22 +73,12 @@
         source: build
         build:
           path: /home/ec2-user/app
-          pull: no
-          nocache: yes
+          pull: yes
+          nocache: yes  # Force rebuild without cache
         force_source: yes
         state: present
 
-    - name: Verify image was built
-      docker_image_info:
-        name: my-web-app
-        tag: latest
-      register: image_info
-
-    - name: Show image info
-      debug:
-        msg: "Image built: {{ image_info.images[0].Id if image_info.images else 'Failed' }}"
-
-    - name: Run new container with restart policy
+    - name: Run new container
       docker_container:
         name: web-app
         image: my-web-app:latest
@@ -109,37 +86,3 @@
         restart_policy: always
         ports:
           - "80:80"
-        container_default_behavior: no_defaults
-
-    - name: Wait for container to start
-      pause:
-        seconds: 5
-
-    - name: Verify container is running
-      docker_container_info:
-        name: web-app
-      register: container_info
-
-    - name: Display container status
-      debug:
-        msg: "Container status: {{ container_info.container.State.Status if container_info.exists else 'Not running' }}"
-
-    - name: Test container has new HTML
-      command: docker exec web-app cat /usr/share/nginx/html/index.html
-      register: container_html
-      changed_when: false
-      ignore_errors: yes
-
-    - name: Show container HTML first line
-      debug:
-        msg: "Container HTML first line: {{ container_html.stdout_lines[0] if container_html.stdout_lines else 'Empty' }}"
-
-    - name: Get container logs
-      command: docker logs web-app --tail 10
-      register: container_logs
-      changed_when: false
-      ignore_errors: yes
-
-    - name: Show container logs
-      debug:
-        msg: "Container logs: {{ container_logs.stdout_lines if container_logs.stdout_lines else 'No logs' }}"

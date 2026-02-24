@@ -64,7 +64,33 @@ jobs:
           ansible-playbook -i ansible/inventory.ini ansible/playbook.yml -v
 
       # ------------------------------
-      # Verify Deployment
+      # Verify files were updated
+      # ------------------------------
+      - name: Verify HTML was updated
+        run: |
+          echo "🔍 Verifying HTML content on server..."
+          
+          # Get the first line of HTML from the server
+          FIRST_LINE=$(ssh -i ~/.ssh/aws-key \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.SSH_USER }}@${{ secrets.ELASTIC_IP_ADDRESS }} \
+            "cat /home/ec2-user/app/index.html | head -1")
+          
+          echo "📄 First line of HTML: $FIRST_LINE"
+          
+          # Get the first line from local file
+          LOCAL_FIRST_LINE=$(head -1 app/index.html)
+          
+          echo "📄 Local first line: $LOCAL_FIRST_LINE"
+          
+          if [ "$FIRST_LINE" = "$LOCAL_FIRST_LINE" ]; then
+            echo "✅ HTML files match!"
+          else
+            echo "⚠️ HTML files may be different - check deployment"
+          fi
+
+      # ------------------------------
+      # Verify application is running
       # ------------------------------
       - name: Verify application is running
         run: |
@@ -78,6 +104,9 @@ jobs:
           
           if [ "$HTTP_STATUS" -eq 200 ]; then
             echo "✅ Application is responding with status 200"
+            
+            # Get the actual HTML content
+            curl -s http://${{ secrets.ELASTIC_IP_ADDRESS }} | grep -i "<title>" || echo "No title found"
           else
             echo "❌ Application returned status $HTTP_STATUS"
             exit 1
@@ -94,7 +123,7 @@ jobs:
           echo "🌐 Your application is live at:"
           echo "   http://${{ secrets.ELASTIC_IP_ADDRESS }}"
           echo ""
-          echo "🔄 Latest code has been deployed using Ansible"
+          echo "🔄 Latest HTML has been deployed (old version overwritten)"
           echo "📅 Deployment time: $(date)"
           echo "========================================="
 
@@ -120,5 +149,13 @@ jobs:
             -o StrictHostKeyChecking=no \
             ${{ secrets.SSH_USER }}@${{ secrets.ELASTIC_IP_ADDRESS }} \
             "echo 'SSH works'" || echo "❌ SSH failed"
+          
+          # Check what files are on the server
+          echo ""
+          echo "📂 Files on server:"
+          ssh -i ~/.ssh/aws-key \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.SSH_USER }}@${{ secrets.ELASTIC_IP_ADDRESS }} \
+            "ls -la /home/ec2-user/app/ || echo 'Directory not found'"
           
           echo "======================================="
