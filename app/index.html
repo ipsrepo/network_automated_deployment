@@ -1,148 +1,171 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Student Profile</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Student Profile</title>
 
-<style>
-    :root {
-        --irish-green: #169B62;
-        --irish-green-dark: #117A4A;
-        --light-bg: #f4f7f6;
-        --card-bg: #ffffff;
-        --text-dark: #1f2933;
-        --text-light: #6b7280;
-    }
+    <style>
+        :root {
+            --irish-green: #169B62;
+            --irish-green-dark: #117A4A;
+            --light-bg: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-dark: #1f2933;
+            --text-light: #6b7280;
+        }
 
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
 
-    body {
-        background: linear-gradient(135deg, var(--irish-green), var(--irish-green-dark));
-        min-height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
+        body {
+            background: linear-gradient(135deg, var(--irish-green), var(--irish-green-dark));
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
 
-    .card {
-        background: var(--card-bg);
-        width: 380px;
-        border-radius: 20px;
-        padding: 30px;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-        text-align: center;
-        position: relative;
-        overflow: hidden;
-    }
+        .card {
+            background: var(--card-bg);
+            width: 720px;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
 
-    .card::before {
-        content: "";
-        position: absolute;
-        top: -50px;
-        right: -50px;
-        width: 150px;
-        height: 150px;
-        background: var(--irish-green);
-        opacity: 0.1;
-        border-radius: 50%;
-    }
+        .card::before {
+            content: "";
+            position: absolute;
+            top: -50px;
+            right: -50px;
+            width: 250px;
+            height: 250px;
+            background: var(--irish-green);
+            opacity: 0.1;
+            border-radius: 50%;
+        }
 
-    h1 {
-        color: var(--irish-green);
-        margin-bottom: 10px;
-        font-size: 24px;
-    }
+        h1 {
+            color: var(--irish-green);
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
 
-    .info {
-        margin-top: 20px;
-        text-align: left;
-    }
+        .info {
+            margin-top: 20px;
+            text-align: left;
+        }
 
-    .info p {
-        margin: 8px 0;
-        font-size: 15px;
-        color: var(--text-dark);
-    }
+        .info p {
+            margin: 16px 0;
+            font-size: 16px;
+            color: var(--text-dark);
+        }
 
-    .label {
-        font-weight: 600;
-        color: var(--irish-green-dark);
-    }
+        .label {
+            font-weight: 600;
+            color: var(--irish-green-dark);
+        }
 
-    .quote-section {
-        margin-top: 25px;
-        padding: 15px;
-        background: var(--light-bg);
-        border-radius: 12px;
-        font-style: italic;
-        color: var(--text-light);
-        min-height: 60px;
-        transition: 0.3s ease;
-    }
+        .quote-section {
+            margin-top: 25px;
+            padding: 15px;
+            font-size: 18px;
+            background: var(--light-bg);
+            border-radius: 12px;
+            font-style: italic;
+            color: var(--text-light);
+            min-height: 60px;
+            transition: 0.3s ease;
+        }
 
-    button {
-        margin-top: 20px;
-        padding: 10px 18px;
-        background: var(--irish-green);
-        border: none;
-        border-radius: 8px;
-        color: white;
-        font-weight: 600;
-        cursor: pointer;
-        transition: 0.3s ease;
-    }
+        button {
+            margin-top: 20px;
+            padding: 10px 18px;
+            background: var(--irish-green);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s ease;
+        }
 
-    button:hover {
-        background: var(--irish-green-dark);
-        transform: translateY(-2px);
-    }
-</style>
+        button:hover {
+            background: var(--irish-green-dark);
+            transform: translateY(-2px);
+        }
+
+        footer {
+            margin-top: 25px;
+            padding-top: 15px;
+            font-size: 13px;
+            color: #fff;
+            text-align: center;
+            position: absolute;
+            bottom: 20px;
+            font-size: 16px;
+            opacity: 0.7;
+
+        }
+
+        footer span {
+            font-weight: 600;
+        }
+    </style>
 </head>
 
 <body>
 
-<div class="card">
-    <h1>Prakash Thangaraj</h1>
+    <div class="card">
+        <h1>Network Systems and Administration CA - one</h1>
 
-    <div class="info">
-        <p><span class="label">Number:</span> 20095532</p>
-        <p><span class="label">Subject:</span> Network Systems and Administration</p>
-        <p><span class="label">Course:</span> Msc Information Systems with Computing</p>
-        <p><span class="label">College:</span> Dublin Business School</p>
+        <div class="info">
+            <p><span class="label">Name:</span> Prakash Thangaraj</p>
+            <p><span class="label">Number:</span> 20095532</p>
+            <p><span class="label">Course:</span> Msc Information Systems with Computing</p>
+            <p><span class="label">College:</span> Dublin Business School</p>
+        </div>
+
+        <div class="quote-section" id="quote">
+            Click below to get a random quote.
+        </div>
+
+        <button onclick="generateQuote()">Get Random Quote</button>
     </div>
 
-    <div class="quote-section" id="quote">
-        Click below to get a random quote.
-    </div>
+    <footer>
+        Made with Terraform, Ansible, Docker and AWS free Tire by <span>Prakash Thangaraj©</span> </footer>
+    <script>
+        const quotes = [
+            "Success is built on consistent small efforts.",
+            "Discipline outperforms motivation every time.",
+            "Focus on systems, not goals.",
+            "Clarity creates power.",
+            "Execution defines skill.",
+            "Progress compounds daily.",
+            "Think long term. Act today.",
+            "Master fundamentals first.",
+            "Simplicity scales.",
+            "Precision creates excellence."
+        ];
 
-    <button onclick="generateQuote()">Get Random Quote</button>
-</div>
-
-<script>
-    const quotes = [
-        "Success is built on consistent small efforts.",
-        "Discipline outperforms motivation every time.",
-        "Focus on systems, not goals.",
-        "Clarity creates power.",
-        "Execution defines skill.",
-        "Progress compounds daily.",
-        "Think long term. Act today.",
-        "Master fundamentals first.",
-        "Simplicity scales.",
-        "Precision creates excellence."
-    ];
-
-    function generateQuote() {
-        const randomIndex = Math.floor(Math.random() * quotes.length);
-        document.getElementById("quote").innerText = quotes[randomIndex];
-    }
-</script>
+        function generateQuote() {
+            const randomIndex = Math.floor(Math.random() * quotes.length);
+            document.getElementById("quote").innerText = quotes[randomIndex];
+        }
+        generateQuote()
+    </script>
 
 </body>
+
 </html>
