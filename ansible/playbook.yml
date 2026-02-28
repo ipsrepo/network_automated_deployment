@@ -57,7 +57,7 @@
         src: ../app/
         dest: /home/ec2-user/app/
         mode: '0644'
-        force: yes  # Force overwrite existing files
+        force: yes
 
     - name: Remove old Docker image and container completely
       shell: |
@@ -65,24 +65,29 @@
         docker rm web-app || true
         docker rmi my-web-app:latest || true
       ignore_errors: yes
+      register: cleanup_result
 
-    - name: Build fresh Docker image (with no cache)
-      docker_image:
-        name: my-web-app
-        tag: latest
-        source: build
-        build:
-          path: /home/ec2-user/app
-          pull: yes
-          nocache: yes  # Force rebuild without cache
-        force_source: yes
-        state: present
+    - name: Build fresh Docker image using command
+      command: docker build -t my-web-app:latest /home/ec2-user/app
+      register: build_result
+      changed_when: "'Successfully built' in build_result.stdout"
+      failed_when: build_result.rc != 0
 
-    - name: Run new container
-      docker_container:
-        name: web-app
-        image: my-web-app:latest
-        state: started
-        restart_policy: always
-        ports:
-          - "80:80"
+    - name: Run new container using command
+      command: docker run -d --name web-app -p 80:80 --restart always my-web-app:latest
+      register: run_result
+      changed_when: run_result.rc == 0
+      failed_when: run_result.rc != 0
+
+    - name: Verify container is running
+      shell: docker ps | grep web-app
+      register: verify_result
+      changed_when: false
+      failed_when: verify_result.rc != 0
+
+    - name: Show deployment status
+      debug:
+        msg: 
+          - "✅ Container built and running successfully!"
+          - "🌐 Website available at: http://52.48.24.168"
+      when: build_result.changed or run_result.changed
