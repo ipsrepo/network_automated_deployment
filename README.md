@@ -21,7 +21,7 @@ All development and deployment tasks were performed on a MacBook Air using free 
 
 ### Automation Flow
 
-Mac → Terraform → AWS EC2 → Ansible → Docker → Browser
+Machine → Terraform → AWS EC2 → Ansible → Docker → Browser
 
 The system automatically:
 - Creates infrastructure on AWS
