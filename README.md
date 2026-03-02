@@ -207,7 +207,8 @@ docker logs web-app
 - Ansible Community  
 - Docker  
 - GitHub Actions  
-- AWS Free Tier  
+- AWS Free Tier 
+- WSL 
 
 ---
 
